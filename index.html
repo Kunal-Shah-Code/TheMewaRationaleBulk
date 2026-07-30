@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Mewa — Bulk Excel Import</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{--navy:#1a3c6e;--green:#1a6e3c;--red:#8b1a1a;--bg:#f0f2f7;--card:#fff;--border:#dde3ee;--text:#1a1a2e;--text2:#5a6080;--text3:#9098b0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+.topbar{background:var(--navy);color:#fff;padding:0 20px;height:50px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.tb-logo{font-size:16px;font-weight:800;font-style:italic}
+.tb-div{width:1px;height:18px;background:rgba(255,255,255,.2)}
+.tb-sub{font-size:11px;opacity:.7}
+.wrap{max-width:1400px;margin:0 auto;padding:22px 24px 60px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;box-shadow:0 2px 10px rgba(20,30,60,.04)}
+.card h2{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--navy)}
+.card p.hint{font-size:11.5px;color:var(--text2);line-height:1.6;margin-bottom:12px}
+textarea{width:100%;min-height:150px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);background:#fafbff;outline:none;resize:vertical;line-height:1.6}
+textarea:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,60,110,.08);background:#fff}
+.btn-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.btn{border:none;border-radius:8px;padding:9px 18px;font-size:12.5px;font-weight:600;cursor:pointer;transition:filter .15s,transform .05s}
+.btn:active{transform:scale(.98)}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-navy:hover{filter:brightness(1.12)}
+.btn-outline{background:#fff;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{background:#f4f6fb}
+.status{font-size:11.5px;margin-top:8px;display:none}
+.status.show{display:block}
+.status.ok{color:var(--green)}
+.status.err{color:var(--red)}
+.table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:11.5px;white-space:nowrap}
+thead th{background:#f4f6fb;color:var(--text2);font-weight:600;text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);position:sticky;top:0}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+tbody tr:hover{background:#f7f9ff}
+.col-seg{font-weight:600;color:var(--navy)}
+.col-seg.empty{color:var(--red);font-weight:500}
+.gen-btn{background:var(--green);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.gen-btn:hover{filter:brightness(1.1)}
+.empty-msg{padding:30px;text-align:center;color:var(--text3);font-size:12.5px}
+.note{background:#f0f4ff;border:1px solid #c8d4f0;border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.7;margin-top:10px}
+.note b{color:var(--navy)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="tb-logo">The Mewa</span>
+  <div class="tb-div"></div>
+  <span class="tb-sub">Bulk Excel Import → Report Generator</span>
+  <div style="flex:1"></div>
+  <a href="report_generator.html" target="_blank" style="color:#fff;font-size:11.5px;text-decoration:none;background:rgba(255,255,255,.12);padding:6px 14px;border-radius:20px">Open Report Generator directly →</a>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>1. Paste your Excel data</h2>
+    <p class="hint">Select the rows in Excel (include the header row) → Copy → paste directly into the box below, then click <b>Parse Data</b>.</p>
+    <textarea id="pasteArea" placeholder="Entry Date&#9;Exit Date&#9;C, O, F&#9;Trg / SL&#9;Script&#9;Expiry&#9;Strike Price&#9;CE/PE&#9;Lot Size&#9;Buy/Sell&#9;Entry Zone&#9;Entry Zone&#9;TRG&#9;SL&#9;PnL Points&#9;PnL Amount / PnL % in Cash&#9;Rationale"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-navy" onclick="parseData()">📋 Parse Data</button>
+      <button class="btn btn-outline" onclick="loadSampleData()">Load Sample</button>
+      <button class="btn btn-outline" onclick="clearAll()">Clear</button>
+    </div>
+    <div id="parseStatus" class="status"></div>
+  </div>
+
+  <div class="card" id="resultsCard" style="display:none">
+    <h2>2. Review &amp; Generate</h2>
+    <p class="hint">Each row below shows the Segment that will be auto-selected, based on the C/O/F, Script and CE/PE columns. Click <b>Generate Rationale</b> on any row to open the report generator prefilled with that trade's data.</p>
+    <div class="table-scroll">
+      <table id="resultsTable"></table>
+    </div>
+    <div class="note">
+      <b>Mapping used:</b> Report Date ← Entry Date · Call Type ← Buy/Sell · Segment ← C/O/F (+ Script for NIFTY/BANKNIFTY/SENSEX → Index Future/Option, + CE/PE for Options) · Script Name ← Script · Buying/Selling Zone ← Entry Zone 1 &amp; 2 (e.g. "137 - 140") · Target ← TRG · Stop Loss ← SL · Expiry ← Expiry (Futures/Commodity/Options) · Strike Price ← Strike Price (Options only).<br>
+      <b>Note:</b> keep this file in the same folder as <b>report_generator.html</b> — "Generate Rationale" opens it with the row's data pre-filled.
+    </div>
+  </div>
+
+</div>
+
+<script>
+let parsedHeaders=[];
+let parsedRows=[];
+let colIdx={};
+
+const SAMPLE=`Entry Date\tExit Date\tC, O, F\tTrg / SL\tScript\tExpiry\tStrike Price\tCE/PE\tLot Size\tBuy/Sell\tEntry Zone\tEntry Zone\tTRG\tSL\tPnL Points\tPnL Amount / PnL % in Cash\tRationale
+13-04-2026\t20-04-2026\tCash\tT\tCMPDI\t-\t-\t-\t1\tBuy\t171.7\t172\t191.8\t152.2\t19.8\t11.51\tDone
+15-04-2026\t16-04-2026\tOption\tSL\tNIFTY\t21-04-2026\t24000\tPE\t65\tBuy\t137\t140\t225\t74\t-66\t-4290.00\tPending
+13-04-2026\t13-04-2026\tFuture\tT\tBANKNIFTY\t28-04-2026\t-\t-\t30\tBuy\t55108\t55115\t55145\t55040\t30\t900.00\tPending
+29-04-2026\t30-04-2026\tCommodity\tSL\tZINC\t29-05-2026\t-\t-\t5000\tSell\t340.3\t340.5\t336.6\t344.6\t-4.3\t-21500.00\tPending`;
+
+function loadSampleData(){
+  document.getElementById('pasteArea').value=SAMPLE;
+  parseData();
+}
+function clearAll(){
+  document.getElementById('pasteArea').value='';
+  document.getElementById('resultsCard').style.display='none';
+  const st=document.getElementById('parseStatus');
+  st.className='status'; st.textContent='';
+}
+
+function showStatus(type,msg){
+  const st=document.getElementById('parseStatus');
+  st.className='status show '+type;
+  st.textContent=msg;
+}
+
+// ── Parse pasted TSV/CSV text into headers + rows ──
+function splitLine(line, delim){
+  return line.split(delim).map(c=>c.trim());
+}
+function parseData(){
+  const raw=document.getElementById('pasteArea').value;
+  const lines=raw.split(/\r\n|\r|\n/).filter(l=>l.trim()!=='');
+  if(lines.length<2){ showStatus('err','Paste at least a header row and one data row.'); return; }
+  const delim = lines[0].includes('\t') ? '\t' : ',';
+  parsedHeaders = splitLine(lines[0], delim);
+  parsedRows = lines.slice(1).map(l=>splitLine(l, delim));
+  colIdx = detectColumns(parsedHeaders);
+  if(colIdx.script===undefined || colIdx.cof===undefined){
+    showStatus('err','Could not find "Script" and/or "C, O, F" columns — check your header row matches the expected format.');
+  } else {
+    showStatus('ok', `✓ Parsed ${parsedRows.length} row(s).`);
+  }
+  renderTable();
+}
+
+function normHeader(h){ return (h||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+
+function detectColumns(headers){
+  const idx={};
+  let entryZoneCount=0;
+  headers.forEach((h,i)=>{
+    const n=normHeader(h);
+    if(n==='entrydate' && idx.entryDate===undefined) idx.entryDate=i;
+    else if(n==='exitdate' && idx.exitDate===undefined) idx.exitDate=i;
+    else if(n==='cof') idx.cof=i;
+    else if(n==='script') idx.script=i;
+    else if(n==='expiry') idx.expiry=i;
+    else if(n==='strikeprice') idx.strikePrice=i;
+    else if(n==='cepe') idx.cepe=i;
+    else if(n==='lotsize') idx.lotSize=i;
+    else if(n==='buysell') idx.buySell=i;
+    else if(n==='entryzone'){
+      if(entryZoneCount===0){ idx.entryZone1=i; entryZoneCount++; }
+      else if(entryZoneCount===1){ idx.entryZone2=i; entryZoneCount++; }
+    }
+    else if(n==='trg') idx.trg=i;
+    else if(n==='sl') idx.sl=i;
+  });
+  return idx;
+}
+
+function cell(row, i){
+  if(i===undefined) return '';
+  const v=row[i];
+  return (v===undefined||v===null) ? '' : String(v).trim();
+}
+function isDash(v){ return v==='' || v==='-' || v==='--' || v.toLowerCase()==='na'; }
+
+const INDEX_SCRIPTS=['NIFTY','BANKNIFTY','SENSEX'];
+
+function mapSegment(cofRaw, scriptRaw, cepeRaw){
+  const c=(cofRaw||'').trim().toLowerCase();
+  const script=(scriptRaw||'').trim().toUpperCase();
+  const isIndex=INDEX_SCRIPTS.includes(script);
+  if(c==='cash') return 'Equity (NSE)';
+  if(c==='future') return isIndex ? 'Index Future' : 'Futures (F&O)';
+  if(c==='commodity') return 'Commodity (MCX)';
+  if(c==='option'){
+    if(isIndex) return 'Index Option';
+    const ce=(cepeRaw||'').trim().toUpperCase();
+    if(ce==='CE') return 'Options CE';
+    if(ce==='PE') return 'Options PE';
+    return '';
+  }
+  return '';
+}
+function mapCallType(v){
+  v=(v||'').trim().toLowerCase();
+  if(v==='buy') return 'BUY';
+  if(v==='sell') return 'SELL';
+  return '';
+}
+function formatDateOrdinal(dateStr){
+  if(!dateStr) return '';
+  const m=dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(!m) return dateStr; // leave as-is if format unrecognized
+  const day=parseInt(m[1],10), mon=parseInt(m[2],10)-1, year=m[3];
+  const moNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const sfx=n=>(n>3&&n<21)?'th':[,'st','nd','rd'][n%10]||'th';
+  return `${day}${sfx(day)} ${moNames[mon]||''} ${year}`;
+}
+function buildZone(z1,z2){
+  z1=(z1||'').trim(); z2=(z2||'').trim();
+  if(z1 && z2) return `${z1} - ${z2}`;
+  return z1||z2||'';
+}
+
+const SEG_FUTURES_GROUP=['Futures (F&O)','Index Future','Commodity (MCX)'];
+const SEG_OPTIONS_GROUP=['Options CE','Options PE','Index Option'];
+
+function buildPayload(row){
+  const cof=cell(row,colIdx.cof);
+  const script=cell(row,colIdx.script);
+  const cepe=cell(row,colIdx.cepe);
+  const segment=mapSegment(cof,script,cepe);
+
+  const payload={
+    repDate: formatDateOrdinal(cell(row,colIdx.entryDate)),
+    callType: mapCallType(cell(row,colIdx.buySell)),
+    segment: segment,
+    scriptName: script,
+    buyZone: buildZone(cell(row,colIdx.entryZone1), cell(row,colIdx.entryZone2)),
+    target: isDash(cell(row,colIdx.trg)) ? '' : cell(row,colIdx.trg),
+    stopLoss: isDash(cell(row,colIdx.sl)) ? '' : cell(row,colIdx.sl),
+    expiry:'', strikePrice:'', optionType:'',
+    lotSize: isDash(cell(row,colIdx.lotSize)) ? '' : cell(row,colIdx.lotSize)
+  };
+  if(SEG_FUTURES_GROUP.includes(segment)){
+    const exp=cell(row,colIdx.expiry);
+    payload.expiry = isDash(exp) ? '' : exp;
+  }
+  if(SEG_OPTIONS_GROUP.includes(segment)){
+    const exp=cell(row,colIdx.expiry);
+    const strike=cell(row,colIdx.strikePrice);
+    const cepeU=cepe.toUpperCase();
+    payload.expiry = isDash(exp) ? '' : exp;
+    if(isDash(strike)){
+      payload.strikePrice='';
+    } else if(cepeU==='CE'){
+      payload.strikePrice = `${strike} CE`;
+    } else if(cepeU==='PE'){
+      payload.strikePrice = `${strike} PE`;
+    } else {
+      payload.strikePrice = strike;
+    }
+    if(cepeU==='CE') payload.optionType='Call (CE)';
+    else if(cepeU==='PE') payload.optionType='Put (PE)';
+  }
+  return payload;
+}
+
+function generateForRow(i){
+  const row=parsedRows[i];
+  const payload=buildPayload(row);
+  const json=encodeURIComponent(JSON.stringify(payload));
+  window.open('report_generator.html#prefill='+json, '_blank');
+}
+
+function renderTable(){
+  const card=document.getElementById('resultsCard');
+  const table=document.getElementById('resultsTable');
+  if(!parsedRows.length){ card.style.display='none'; return; }
+  card.style.display='';
+
+  let thead='<thead><tr>';
+  parsedHeaders.forEach(h=>{ thead+=`<th>${escapeHtml(h)}</th>`; });
+  thead+='<th>Segment (mapped)</th><th>Action</th></tr></thead>';
+
+  let tbody='<tbody>';
+  parsedRows.forEach((row,i)=>{
+    const cof=cell(row,colIdx.cof), script=cell(row,colIdx.script), cepe=cell(row,colIdx.cepe);
+    const segment=mapSegment(cof,script,cepe);
+    tbody+='<tr>';
+    row.forEach(c=>{ tbody+=`<td>${escapeHtml(c)}</td>`; });
+    // Pad if row shorter than headers
+    for(let k=row.length;k<parsedHeaders.length;k++) tbody+='<td></td>';
+    tbody+=`<td class="col-seg${segment?'':' empty'}">${segment||'— unmapped —'}</td>`;
+    tbody+=`<td><button class="gen-btn" onclick="generateForRow(${i})">⚡ Generate Rationale</button></td>`;
+    tbody+='</tr>';
+  });
+  tbody+='</tbody>';
+
+  table.innerHTML=thead+tbody;
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>
