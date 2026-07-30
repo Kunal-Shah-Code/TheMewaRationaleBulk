@@ -39,6 +39,8 @@ tbody tr:hover{background:#f7f9ff}
 .col-seg.empty{color:var(--red);font-weight:500}
 .gen-btn{background:var(--green);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
 .gen-btn:hover{filter:brightness(1.1)}
+.del-btn{background:#fff;color:var(--red);border:1px solid var(--red);border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.del-btn:hover{background:var(--red);color:#fff}
 .empty-msg{padding:30px;text-align:center;color:var(--text3);font-size:12.5px}
 .note{background:#f0f4ff;border:1px solid #c8d4f0;border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.7;margin-top:10px}
 .note b{color:var(--navy)}
@@ -152,6 +154,7 @@ function detectColumns(headers){
     }
     else if(n==='trg') idx.trg=i;
     else if(n==='sl') idx.sl=i;
+    else if(n==='rationale') idx.rationale=i;
   });
   return idx;
 }
@@ -253,6 +256,31 @@ function generateForRow(i){
   window.open('report_generator.html#prefill='+json, '_blank');
 }
 
+function deleteRow(i){
+  if(!confirm('Delete this row?')) return;
+  parsedRows.splice(i,1);
+  showStatus('ok', `Row deleted. ${parsedRows.length} row(s) remaining.`);
+  renderTable();
+}
+
+// Fixed set of columns to display in the review table (in this order),
+// each mapped back to the detected column index via colIdx.
+const DISPLAY_COLUMNS=[
+  {label:'Entry Date',    key:'entryDate'},
+  {label:'C, O, F',       key:'cof'},
+  {label:'Script',        key:'script'},
+  {label:'Expiry',        key:'expiry'},
+  {label:'Strike Price',  key:'strikePrice'},
+  {label:'CE/PE',         key:'cepe'},
+  {label:'Lot Size',      key:'lotSize'},
+  {label:'Buy/Sell',      key:'buySell'},
+  {label:'Entry Zone',    key:'entryZone1'},
+  {label:'Entry Zone',    key:'entryZone2'},
+  {label:'TRG',           key:'trg'},
+  {label:'SL',            key:'sl'},
+  {label:'Rationale',     key:'rationale'},
+];
+
 function renderTable(){
   const card=document.getElementById('resultsCard');
   const table=document.getElementById('resultsTable');
@@ -260,7 +288,7 @@ function renderTable(){
   card.style.display='';
 
   let thead='<thead><tr>';
-  parsedHeaders.forEach(h=>{ thead+=`<th>${escapeHtml(h)}</th>`; });
+  DISPLAY_COLUMNS.forEach(c=>{ thead+=`<th>${escapeHtml(c.label)}</th>`; });
   thead+='<th>Segment (mapped)</th><th>Action</th></tr></thead>';
 
   let tbody='<tbody>';
@@ -268,11 +296,12 @@ function renderTable(){
     const cof=cell(row,colIdx.cof), script=cell(row,colIdx.script), cepe=cell(row,colIdx.cepe);
     const segment=mapSegment(cof,script,cepe);
     tbody+='<tr>';
-    row.forEach(c=>{ tbody+=`<td>${escapeHtml(c)}</td>`; });
-    // Pad if row shorter than headers
-    for(let k=row.length;k<parsedHeaders.length;k++) tbody+='<td></td>';
+    DISPLAY_COLUMNS.forEach(c=>{ tbody+=`<td>${escapeHtml(cell(row,colIdx[c.key]))}</td>`; });
     tbody+=`<td class="col-seg${segment?'':' empty'}">${segment||'— unmapped —'}</td>`;
-    tbody+=`<td><button class="gen-btn" onclick="generateForRow(${i})">⚡ Generate Rationale</button></td>`;
+    tbody+=`<td style="display:flex;gap:6px">
+      <button class="gen-btn" onclick="generateForRow(${i})">⚡ Generate Rationale</button>
+      <button class="del-btn" onclick="deleteRow(${i})">🗑 Delete</button>
+    </td>`;
     tbody+='</tr>';
   });
   tbody+='</tbody>';
